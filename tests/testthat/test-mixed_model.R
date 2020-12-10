@@ -35,3 +35,9 @@ test_that("mixed_model works", {
     expect_true(d$person[1]=="tom")
 
 })
+
+test_that("check_id_length works", {
+    expect_error(check_id_length(3, list(id = 1:4)))
+    expect_error(check_id_length(3, list(id = c(1,2,2,3))))
+    expect_null(check_id_length(3, list(id = c(1,2,3))))
+})
