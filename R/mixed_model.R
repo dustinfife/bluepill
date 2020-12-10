@@ -12,10 +12,8 @@
 #' Each entry either contains a vector of three (indicating mean, standard deviation, and # of
 #' digits to round), or a vector containing the unique values of categorical variables. Also, you must
 #' include the name of the cluster. See examples.
-#' @import flexplot purrr dplyr
-#' @importFrom magrittr "%>%"
+#' @import flexplot purrr dplyr magrittr
 #'
-#' @return
 #' @export
 #'
 #' @examples
@@ -81,11 +79,17 @@ check_variances = function(fixed) {
     return(NULL)
 }
 
+rescale = function(x, new.mean, new.sd){
+    m2 = new.mean+(x-mean(x, na.rm=T))*(new.sd/sd(x, na.rm=T))
+    m2
+}
+"%>%" <- NULL
+#' @importFrom magrittr "%>%"
 rescale_vars = function(dat, x) {
     names(x) = names(dat)
     dat = unlist(dat)
     if (!is.character(dat[1])) {
-        x = as.numeric(flexplot:::rescale(x, dat[1], dat[2]) %>% round(digits=dat[3]))
+        x = as.numeric(rescale(x, dat[1], dat[2]) %>% round(digits=dat[3]))
         return(x)
     }
     x = cut(x, breaks = length(dat), labels=dat)

@@ -8,10 +8,10 @@ mixed_model(fixed, random, sigma, clusters, n_per, vars)
 }
 \arguments{
 \item{fixed}{a vector equal to the number of variables + 1. Each entry indicates the
-(standardized) value of the fixed effect.}
+(standardized) value of the fixed effect. The first entry is for the intercept.}
 
 \item{random}{a vector equal to the number of variables + 1. Each entry indicates the
-(standardized) standard deviation for the random effects.}
+(standardized) standard deviation for the random effects. The first entry is for the intercept.}
 
 \item{sigma}{proportion of variance remaining unexplained at the residual level}
 
@@ -24,9 +24,6 @@ the number of observations within each cluster}
 Each entry either contains a vector of three (indicating mean, standard deviation, and # of
 digits to round), or a vector containing the unique values of categorical variables. Also, you must
 include the name of the cluster. See examples.}
-}
-\value{
-
 }
 \description{
 Generate simulated mixed model data
