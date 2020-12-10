@@ -33,32 +33,52 @@
 #' mixed_model(fixed, random, sigma = .3, clusters=15, n_per = c(11, 3), vars=vars)
 mixed_model = function(fixed, random, sigma, clusters, n_per, vars){
 
+
     check_errors(fixed, random, vars, clusters)
 
-    total.n = 1:clusters %>% purrr::map(function(x) round(rnorm(1, n_per[1], n_per[2])))
+    id_names = vars[length(vars)] %>% unlist
+    total.n = 1:clusters %>%
+        purrr::map(function(x) assign(as.character(id_names[x]), round(rnorm(1, n_per[1], n_per[2]))))
+    names(total.n) = id_names
     N = sum(unlist(total.n))
-    preds = 1:(length(fixed))
-    predictors = preds[-length(preds)] %>% purrr::map_dfc(function(x) rnorm(N)) %>%
-        dplyr::mutate(intercept = 1) %>%
-        dplyr:::select(intercept, !starts_with("intercept"))
-    coef_matrix = 1:length(total.n) %>%
-        purrr::map(function(x) preds %>% purrr::map_dbl(function(y) rnorm(1, fixed[y], random[y])) %>%
-                       purrr::set_names(c(paste0("b", 0:(length(preds)-1))))) %>%
-        purrr::map2(unlist(total.n), function(x,y) matrix(x, nrow=y, ncol=length(preds), byrow=T)) %>%
-        purrr::map(function(x) data.frame(x)) %>%
-        purrr::map_dfr(function(x) x)
-    y = preds %>%
-        purrr::map(function(x) coef_matrix[x] * predictors[x]) %>%
-        Reduce("+", .) %>%
-        cbind(., predictors) %>%
-        dplyr::select(-intercept)
+    preds = 1:(length(fixed)); names(preds) = names(vars)[-length(names(vars))]; names(preds)[1] = "intercept"
 
+    # this matrix will have the scores on the predictor variables
+    # these are just rnorm, except that fixed effects are consistent within cluster
+    predictor_matrix = preds %>% purrr::map_dfc(function(y) total.n %>%
+        purrr::map(function(x) fixed_or_random_prediction(x,y,random) %>% unlist) %>%
+        stack() %>% dplyr::select(-ind)) %>%
+        purrr::set_names(names(preds)) %>%
+        dplyr::mutate(intercept = 1)
+    coef_matrix = preds %>% purrr::map_dfc(function(y) total.n %>%
+        purrr::map(function(x) rep(rnorm(1, fixed[y], random[y]), x) %>% unlist) %>%
+        stack() %>% dplyr::select(-ind)) %>%
+        purrr::set_names(names(preds)) %>%
+        dplyr::mutate(intercept = 1)
+
+    res_cor = sigma*sqrt(1-sum(fixed[-1]^2)^2)
+    y = preds %>%
+        purrr::map(function(x) coef_matrix[x] * predictor_matrix[x] + rnorm(N, 0, res_cor)) %>%
+        Reduce("+", .) %>%
+        cbind(., predictor_matrix %>% dplyr::select(-intercept))
     d = 1:ncol(y) %>% purrr::map_dfc(function(x) rescale_vars(vars[[x]],y[,x])) %>%
-        purrr::set_names(names(vars)[-length(vars)]) %>%
-        data.frame()
+       purrr::set_names(names(vars)[-length(vars)]) %>%
+       data.frame()
     d$person = 1:length(total.n) %>% purrr::map(function(x) rep(vars[[length(vars)]][x], times=total.n[x])) %>% unlist
     names(d)[ncol(d)] = names(vars)[length(vars)]
     return(d)
+}
+
+fixed_or_random_prediction = function(n,pred,random){
+
+    if (random[pred]==0) return(rep(rnorm(1, 0, 1), n))
+    return(rnorm(n, 0, 1))
+}
+
+check_variances = function(fixed) {
+    explained_var = sum(fixed[-1]^2)^2
+    if (explained_var>1) stop("The sum of your standardized coefficients is greater than one.")
+    return(NULL)
 }
 
 rescale_vars = function(dat, x) {
@@ -98,6 +118,7 @@ check_var_vs_fixed_vs_random = function(fixed, random, vars) {
 check_errors = function(fixed, random, vars, clusters) {
     check_var_vs_fixed_vs_random(fixed, random, vars)
     check_id_length(clusters, vars)
+    check_variances(fixed)
     return(NULL)
 }
 
