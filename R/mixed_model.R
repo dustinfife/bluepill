@@ -51,8 +51,7 @@ mixed_model = function(fixed, random, sigma, clusters, n_per, vars){
     coef_matrix = preds %>% purrr::map_dfc(function(y) total.n %>%
         purrr::map(function(x) rep(rnorm(1, fixed[y], random[y]), x) %>% unlist) %>%
         stack() %>% dplyr::select(-ind)) %>%
-        purrr::set_names(names(preds)) %>%
-        dplyr::mutate(intercept = 1)
+        purrr::set_names(names(preds))
 
     res_cor = sigma*sqrt(1-sum(fixed[-1]^2)^2)
     y = preds %>%
