@@ -13,3 +13,5 @@ Imports: flexplot, dplyr, purrr, magrittr
 Suggests: 
     testthat
 RoxygenNote: 7.1.1
+Depends: 
+    R (>= 2.10)

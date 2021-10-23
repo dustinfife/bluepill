@@ -29,7 +29,11 @@
 #'  therapist = paste0("Dr. ", LETTERS[1:15])
 #' )
 #' mixed_model(fixed, random, sigma = .3, clusters=15, n_per = c(11, 3), vars=vars)
-mixed_model = function(fixed, random, sigma, clusters, n_per, vars){
+#' # add a model with interactions/polynomials
+#' mixed_model(fixed, random, sigma = .3, clusters=15, n_per = c(11, 3), vars=vars,
+#'       interaction = list(from=c(1,2), to=c(2,3), coef=c(.2, .1)),
+#'       polynomials = list(var = c(3,4), degree = c(2,2), coef = c(.2, .2))
+mixed_model = function(fixed, random, sigma, clusters, n_per, vars, interactions = NULL, polynomials = NULL){
 
 
     check_errors(fixed, random, vars, clusters)
@@ -53,17 +57,62 @@ mixed_model = function(fixed, random, sigma, clusters, n_per, vars){
         stack() %>% dplyr::select(-ind)) %>%
         purrr::set_names(names(preds))
 
+    # add interactions and polynomials here
+    interaction_effects = add_interactions(predictor_matrix, coef_matrix, interactions)
+        predictor_matrix = interaction_effects$predictor_matrix
+        coef_matrix = interaction_effects$coef_matrix
+        head(predictor_matrix)
+    polynomial_effects = add_polynomials(predictor_matrix, coef_matrix, polynomials)
+        predictor_matrix = polynomial_effects$predictor_matrix
+        coef_matrix = polynomial_effects$coef_matrix
+
     res_cor = sigma*sqrt(1-sum(fixed[-1]^2)^2)
     y = preds %>%
         purrr::map(function(x) coef_matrix[x] * predictor_matrix[x] + rnorm(N, 0, res_cor)) %>%
         Reduce("+", .) %>%
         cbind(., predictor_matrix %>% dplyr::select(-intercept))
-    d = 1:ncol(y) %>% purrr::map_dfc(function(x) rescale_vars(vars[[x]],y[,x])) %>%
+    d = 1:(length(vars)-1) %>% purrr::map_dfc(function(x) rescale_vars(vars[[x]],y[,x])) %>%
        purrr::set_names(names(vars)[-length(vars)]) %>%
        data.frame()
     d$person = 1:length(total.n) %>% purrr::map(function(x) rep(vars[[length(vars)]][x], times=total.n[x])) %>% unlist
     names(d)[ncol(d)] = names(vars)[length(vars)]
     return(d)
+}
+
+add_polynomials = function(predictor_matrix, coef_matrix, polynomials=NULL) {
+
+    if (is.null(polynomials)) return(list(predictor_matrix=predictor_matrix, coef_matrix=coef_matrix))
+    interaction_polynomial_checks(prediction_matrix, coef_matrix, polynomials)
+    # reformat so I can pass it in to the add_interactions function
+    # currently only supports squared terms
+    polynomials[[2]] = polynomials[[1]]
+    return(add_interactions(predictor_matrix, coef_matrix, polynomials))
+}
+
+interaction_polynomial_checks = function(prediction_matrix, coef_matrix, list){
+
+    # check if list is length of 3
+    if (length(list) != 3) stop("Your interactions and/or polynomial list must have exactly 3 elements.")
+
+    # make sure each object inside list has the same length
+    if (length(list[[1]]) != length(list[[2]]) &
+        length(list[[2]]) != length(list[[3]])) stop("Your interaction and/or polynomial lists are not the same length.")
+}
+
+add_interactions = function(predictor_matrix, coef_matrix, interactions=NULL){
+
+    if (is.null(interactions)) return(list(predictor_matrix=predictor_matrix, coef_matrix=coef_matrix))
+
+    # check for errors and stuff
+    interaction_polynomial_checks(prediction_matrix, coef_matrix, interactions)
+
+    col_name = paste0(names(predictor_matrix)[interactions[[1]]+1], ":", names(predictor_matrix)[interactions[[2]]+1])
+    col_values = (predictor_matrix[,interactions[[1]]+1 ] * predictor_matrix[,interactions[[2]]+1 ])
+    predictor_matrix[,col_name] = col_values
+
+    # for now, all interactions/polynomials are fixed effects
+    coef_matrix[,col_name] = matrix(interactions[[3]], nrow=nrow(coef_matrix), ncol=length(col_name), byrow=T)
+    return(list(predictor_matrix=predictor_matrix, coef_matrix=coef_matrix))
 }
 
 fixed_or_random_prediction = function(n,pred,random){
