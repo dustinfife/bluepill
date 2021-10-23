@@ -67,6 +67,7 @@ mixed_model = function(fixed, random, sigma, clusters, n_per, vars, interactions
         coef_matrix = polynomial_effects$coef_matrix
 
     res_cor = sigma*sqrt(1-sum(fixed[-1]^2)^2)
+    preds = names(predictor_matrix)
     y = preds %>%
         purrr::map(function(x) coef_matrix[x] * predictor_matrix[x] + rnorm(N, 0, res_cor)) %>%
         Reduce("+", .) %>%

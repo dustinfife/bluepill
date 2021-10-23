@@ -16,7 +16,18 @@ vars = list(
 jedi_darkness = mixed_model(fixed, random, sigma = .3, clusters=95, n_per = c(75, 8), vars=vars,
                    interactions = list(c(1,2), c(2,3), c(.3, .1)),
                    polynomials  = list(c(3,4), c(2,2), c(.1, .1)))
-usethis::use_data(jedi_darkness)
+usethis::use_data(jedi_darkness, overwrite = T)
+
+d = jedi_darkness %>%
+    mutate(across(darkness:midichlorian, scale))
+require(lme4)
+head(d)
+mod = lmer(darkness~midichlorian + I(midichlorian^2) + (midichlorian | jedi_id), data=d)
+estimates(mod)
+
+visualize(mod, plot="model", sample=50)
+
+
 # require(lme4)
 # mod = lmer(darkness~anger + emotional_bonds + age_started + midichlorian + anger:emotional_bonds + I(age_started^2) + (anger + emotional_bonds + midichlorian | jedi_id), data=data)
 #
